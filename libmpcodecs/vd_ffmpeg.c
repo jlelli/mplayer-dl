@@ -800,6 +800,10 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags){
             avctx->skip_idct = AVDISCARD_ALL;
     }
 
+    printf("pict_type: %s ",
+	  (pic->pict_type==AV_PICTURE_TYPE_I)?"I":(pic->pict_type==AV_PICTURE_TYPE_B)?"B":
+	  (pic->pict_type==AV_PICTURE_TYPE_P)?"P":(pic->pict_type==AV_PICTURE_TYPE_S)?"S":"?");
+
     if (data)
     mp_msg(MSGT_DECVIDEO, MSGL_DBG2, "vd_ffmpeg data: %04x, %04x, %04x, %04x\n",
            ((int *)data)[0], ((int *)data)[1], ((int *)data)[2], ((int *)data)[3]);

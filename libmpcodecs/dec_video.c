@@ -438,6 +438,11 @@ void *decode_video(sh_video_t *sh_video, unsigned char *start, int in_size,
     tt = t * 0.000001f;
     video_time_usage += tt;
 
+    video_time_last = tt;
+    if (tt > video_time_max)
+	video_time_max = tt;
+    ++video_time_samples;
+
     if (!mpi || drop_frame)
         return NULL;            // error / skipped frame
 
@@ -494,6 +499,11 @@ int filter_video(sh_video_t *sh_video, void *frame, double pts)
 
     t2 = GetTimer() - t2;
     vout_time_usage += t2 * 0.000001;
+
+    vout_time_last = t2*0.000001;
+    if (t2*0.000001 > vout_time_max)
+	vout_time_max = t2*0.000001;
+    ++vout_time_samples;
 
     return ret;
 }

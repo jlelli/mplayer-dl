@@ -51,7 +51,14 @@ extern char  *dvdsub_lang;
 extern float  font_factor;
 extern double force_fps;
 extern double video_time_usage;
+extern double video_time_last;
+extern double video_time_max;
+extern double video_time_samples;
+
 extern double vout_time_usage;
+extern double vout_time_last;
+extern double vout_time_max;
+extern double vout_time_samples;
 
 extern int disable_system_conf;
 extern int disable_user_conf;

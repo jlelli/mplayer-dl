@@ -170,8 +170,17 @@ int fixed_vo;
 
 // benchmark:
 double video_time_usage;
+double video_time_last=0;
+double video_time_max=0;
+double video_time_samples=0;
 double vout_time_usage;
+double vout_time_last=0;
+double vout_time_max=0;
+double vout_time_samples=0;
 static double audio_time_usage;
+static double audio_time_last=0;
+static double audio_time_max=0;
+static double audio_time_samples=0;
 static int total_time_usage_start;
 static int total_frame_cnt;
 static int drop_frame_cnt; // total number of dropped frames
@@ -2114,7 +2123,25 @@ static void adjust_sync_and_print_status(int between_frames, float timing_error)
             }
             if (!quiet)
                 print_status(a_pts - audio_delay, AV_delay, c_total);
-        }
+
+	    // Format:
+	    //  A/V delay, num frames, decoded frames, dropped frames
+	    //  audio stats, video stats, vout stats (curr, max, avg)
+	    printf("%7.3f %3d %3d %3d "
+		   "%6.3f %6.3f %6.3f "
+		   "%6.3f %6.3f %6.3f "
+		   "%6.3f %6.3f %6.3f\n",
+		   AV_delay,
+		   (int)mpctx->sh_video->num_frames,
+		   (int)mpctx->sh_video->num_frames_decoded,
+		   drop_frame_cnt,
+		   audio_time_last, audio_time_max,
+		   audio_time_usage/(double)audio_time_samples,
+		   video_time_last, video_time_max,
+		   video_time_usage/(double)video_time_samples,
+		   vout_time_last, vout_time_max,
+		   vout_time_usage/(double)vout_time_samples);
+	}
     } else {
         // No audio:
 
@@ -2183,6 +2210,12 @@ static int fill_audio_out_buffers(void)
         t  = GetTimer() - t;
         tt = t * 0.000001f;
         audio_time_usage += tt;
+
+	audio_time_last = tt;
+	if (tt > audio_time_max)
+	    audio_time_max = tt;
+	++audio_time_samples;
+
         if (playsize > sh_audio->a_out_buffer_len) {
             playsize = sh_audio->a_out_buffer_len;
             if (audio_eof || format_change)
@@ -2754,6 +2787,12 @@ static int seek(MPContext *mpctx, double amount, int style)
     audio_time_usage   = 0;
     video_time_usage   = 0;
     vout_time_usage    = 0;
+    audio_time_max     = 0;
+    video_time_max     = 0;
+    vout_time_max      = 0;
+    audio_time_samples = 0;
+    video_time_samples = 0;
+    vout_time_samples  = 0;
     drop_frame_cnt     = 0;
 
     current_module = NULL;
@@ -3693,6 +3732,12 @@ goto_enable_cache:
         video_time_usage       = 0;
         vout_time_usage = 0;
         total_frame_cnt = 0;
+        audio_time_max  = 0;
+        video_time_max  = 0;
+        vout_time_max   = 0;
+        audio_time_samples = 0;
+        video_time_samples = 0;
+        vout_time_samples  = 0;
         drop_frame_cnt  = 0;         // fix for multifile fps benchmark
         play_n_frames   = play_n_frames_mf;
         mpctx->startup_decode_retry = DEFAULT_STARTUP_DECODE_RETRY;
@@ -3765,6 +3810,7 @@ goto_enable_cache:
                 vo_fps = mpctx->sh_video->fps;
 
                 if (!mpctx->num_buffered_frames) {
+                    unsigned int t = GetTimer();
                     double frame_time = update_video(&blit_frame);
                     while (!blit_frame && mpctx->startup_decode_retry > 0) {
                         double delay = mpctx->delay;
@@ -3792,6 +3838,8 @@ goto_enable_cache:
                         mpctx->num_buffered_frames += blit_frame;
                         mpctx->time_frame += frame_time / playback_speed; // for nosound
                     }
+                    t = GetTimer() - t;
+                    printf("%7.3f ", (double)t*0.000001);
                 }
 
 // ==========================================================================

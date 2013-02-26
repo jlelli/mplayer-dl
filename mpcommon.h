@@ -19,6 +19,7 @@
 #ifndef MPLAYER_MPCOMMON_H
 #define MPLAYER_MPCOMMON_H
 
+#include <time.h>
 #include "m_config.h"
 #include "m_option.h"
 #include "sub/subreader.h"
@@ -91,5 +92,8 @@ void common_preinit(void);
 int common_init(void);
 
 double calc_a_pts(struct sh_audio *sh_audio, demux_stream_t *d_audio);
+
+struct timespec 
+usec_to_timespec(unsigned long usec);
 
 #endif /* MPLAYER_MPCOMMON_H */

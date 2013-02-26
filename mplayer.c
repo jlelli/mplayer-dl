@@ -137,6 +137,9 @@
 #ifdef CONFIG_DVDREAD
 #include "stream/stream_dvd.h"
 #endif
+#ifdef USE_OML_EXCEPTIONS
+#include "oml_exceptions.h"
+#endif
 
 int slave_mode;
 int player_idle_mode;
@@ -2451,7 +2454,7 @@ err_out:
     return 0;
 }
 
-#define VA_THRESHOLD	0.100f
+#define VA_THRESHOLD	0.050f
 
 static double update_video(int *blit_frame)
 {
@@ -2462,7 +2465,7 @@ static double update_video(int *blit_frame)
     if (!correct_pts) {
         unsigned char *start = NULL;
         void *decoded_frame  = NULL;
-        int drop_frame       = 0;
+        int drop_frame       = frame_dropping;
         int in_size;
         int full_frame;
 	float VA_delay;
@@ -2470,6 +2473,10 @@ static double update_video(int *blit_frame)
 	static unsigned int _t = 0, _ift = 0;
 	unsigned int ift, t;
 	float dt;
+#ifdef USE_OML_EXCEPTIONS
+	float delay;
+	struct timespec delay_ts;
+#endif
 
         do {
             int flush;
@@ -2498,7 +2505,37 @@ static double update_video(int *blit_frame)
                 return -1;
             if (in_size > max_framesize)
                 max_framesize = in_size;  // stats
-            drop_frame     = check_framedrop(frame_time);
+#ifdef USE_OML_EXCEPTIONS
+	    current_module = "decode_video";
+	    delay = (video_pts - dt) + (audio_pts - dt) + VA_THRESHOLD;
+	    delay = delay <= 0 ? 0.005 : delay;
+	    delay_ts = usec_to_timespec(delay * 1E6);
+	    oml_try_within_rel(delay_ts) {
+	        if (drop_frame < 2)
+	    	oml_try_within_disable();
+#ifdef CONFIG_DVDNAV
+            full_frame    = 1;
+	    decoded_frame = mp_dvdnav_restore_smpi(&in_size,&start,decoded_frame);
+	    /// still frame has been reached, no need to decode
+	    if (in_size > 0 && !decoded_frame)
+#endif
+	    decoded_frame = decode_video(sh_video, start, in_size,
+					 drop_frame, sh_video->pts, &full_frame);
+	    oml_try_within_enable();
+#ifdef CONFIG_DVDNAV
+	    /// save back last still frame for future display
+	    mp_dvdnav_save_smpi(in_size,start,decoded_frame);
+#endif
+	    }
+	    oml_handle
+	        oml_when(oml_ex_deadline_violation) {
+	    	decoded_frame = NULL;
+	    	++drop_frame_cnt;
+	        }
+	    oml_end;
+	    ++total_frame_cnt;
+#else /* !USE_OML_EXCEPTIONS */
+	    drop_frame = check_framedrop(frame_time);
             current_module = "decode_video";
 #ifdef CONFIG_DVDNAV
             full_frame    = 1;
@@ -2508,6 +2545,7 @@ static double update_video(int *blit_frame)
             if ((in_size > 0 || flush) && !decoded_frame)
             decoded_frame = decode_video(sh_video, start, in_size, drop_frame,
                                          sh_video->pts, &full_frame);
+#endif /* USE_OML_EXCEPTIONS */
 
             if (flush && !decoded_frame)
                 return -1;

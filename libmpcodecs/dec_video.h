@@ -31,6 +31,9 @@ void uninit_video(sh_video_t *sh_video);
 
 void *decode_video(sh_video_t *sh_video, unsigned char *start, int in_size, int drop_frame, double pts, int *full_frame);
 int filter_video(sh_video_t *sh_video, void *frame, double pts);
+#ifdef USE_OML_EXCEPTIONS
+int __filter_video(sh_video_t *sh_video, void *frame, double pts);
+#endif
 
 int get_video_quality_max(sh_video_t *sh_video);
 void set_video_quality(sh_video_t *sh_video, int quality);

@@ -396,6 +396,9 @@ void *decode_video(sh_video_t *sh_video, unsigned char *start, int in_size,
     int got_picture = 1;
 
     mpi = mpvdec->decode(sh_video, start, in_size, drop_frame);
+#ifdef USE_OML_EXCEPTIONS
+    drop_frame = 0;
+#endif
 
     //------------------------ frame decoded. --------------------
 
@@ -507,3 +510,28 @@ int filter_video(sh_video_t *sh_video, void *frame, double pts)
 
     return ret;
 }
+
+#ifdef USE_OML_EXCEPTIONS
+int __filter_video(sh_video_t *sh_video, void *frame, double pts)
+{
+    mp_image_t *mpi = frame;
+    vf_instance_t *vf = sh_video->vfilter;
+    int ret;
+
+    while (vf->next != NULL)
+	vf = vf->next;
+
+    ret = vf->put_image(vf, mpi, pts);
+    if (ret > 0) {
+	// draw EOSD first so it ends up below the OSD.
+	// Note that changing this is will not work right with vf_ass and the
+	// vos currently always draw the EOSD first in paused mode.
+#ifdef CONFIG_ASS
+	vf->control(vf, VFCTRL_DRAW_EOSD, NULL);
+#endif
+	vf->control(vf, VFCTRL_DRAW_OSD, NULL);
+    }
+
+    return ret;
+}
+#endif

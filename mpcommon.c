@@ -600,3 +600,15 @@ double calc_a_pts(sh_audio_t *sh_audio, demux_stream_t *d_audio)
     }
     return a_pts;
 }
+
+struct timespec 
+usec_to_timespec(unsigned long usec)
+{
+	struct timespec ts;
+
+	ts.tv_sec = usec / 1000000;
+	ts.tv_nsec = (usec % 1000000) * 1000;
+	
+	return ts;
+}
+

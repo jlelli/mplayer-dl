@@ -2451,6 +2451,8 @@ err_out:
     return 0;
 }
 
+#define VA_THRESHOLD	0.100f
+
 static double update_video(int *blit_frame)
 {
     sh_video_t *const sh_video = mpctx->sh_video;
@@ -2463,6 +2465,11 @@ static double update_video(int *blit_frame)
         int drop_frame       = 0;
         int in_size;
         int full_frame;
+	float VA_delay;
+	double audio_pts, video_pts;
+	static unsigned int _t = 0, _ift = 0;
+	unsigned int ift, t;
+	float dt;
 
         do {
             int flush;
@@ -2515,6 +2522,22 @@ static double update_video(int *blit_frame)
                 update_teletext(sh_video, mpctx->demuxer, 0);
                 update_osd_msg();
             }
+
+            ift = _ift;
+            t = _ift = GetTimer();
+            if (ift == 0) ift = t;
+            if (_t == 0) _t = t;
+            dt = (t - _t)*0.000001;
+            
+            audio_pts = written_audio_pts(mpctx->sh_audio, mpctx->d_audio) -
+            	    mpctx->delay + audio_delay;
+            video_pts = sh_video ? sh_video->pts : mpctx->d_video->pts;
+            VA_delay = video_pts - audio_pts;
+            printf("%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f ",
+                   dt, (_ift-ift)*0.000001,
+                   VA_delay, video_pts-dt, audio_pts-dt,
+                   playback_speed*mpctx->audio_out->get_delay()-mpctx->delay);
+
 #ifdef CONFIG_DVDNAV
             // save back last still frame for future display
             mp_dvdnav_save_smpi(in_size, start, decoded_frame);

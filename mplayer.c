@@ -2506,6 +2506,11 @@ static double update_video(int *blit_frame)
             if (in_size > max_framesize)
                 max_framesize = in_size;  // stats
 #ifdef USE_OML_EXCEPTIONS
+	    if (total_frame_cnt < DEFAULT_STARTUP_DECODE_RETRY)
+	        drop_frame=0;
+	    else
+	        drop_frame=frame_dropping;
+
 	    current_module = "decode_video";
 	    delay = (video_pts - dt) + (audio_pts - dt) + VA_THRESHOLD;
 	    delay = delay <= 0 ? 0.005 : delay;
@@ -2535,7 +2540,12 @@ static double update_video(int *blit_frame)
 	    oml_end;
 	    ++total_frame_cnt;
 #else /* !USE_OML_EXCEPTIONS */
-	    drop_frame = check_framedrop(frame_time);
+	    if (total_frame_cnt < DEFAULT_STARTUP_DECODE_RETRY) {
+	        drop_frame=0;
+	        total_frame_cnt++;
+	    } else
+	        drop_frame = check_framedrop(frame_time);
+
             current_module = "decode_video";
 #ifdef CONFIG_DVDNAV
             full_frame    = 1;
@@ -3873,6 +3883,7 @@ goto_enable_cache:
                 if (!mpctx->num_buffered_frames) {
                     unsigned int t = GetTimer();
                     double frame_time = update_video(&blit_frame);
+                    mpctx->startup_decode_retry=0;
                     while (!blit_frame && mpctx->startup_decode_retry > 0) {
                         double delay = mpctx->delay;
                         // these initial decode failures are probably due to codec delay,

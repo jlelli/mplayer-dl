@@ -2505,6 +2505,22 @@ static double update_video(int *blit_frame)
                 return -1;
             if (in_size > max_framesize)
                 max_framesize = in_size;  // stats
+
+            ift = _ift;
+            t = _ift = GetTimer();
+            if (ift == 0) ift = t;
+            if (_t == 0) _t = t;
+            dt = (t - _t)*0.000001;
+            
+            audio_pts = written_audio_pts(mpctx->sh_audio, mpctx->d_audio) -
+            	    mpctx->delay + audio_delay;
+            video_pts = sh_video ? sh_video->pts : mpctx->d_video->pts;
+            VA_delay = video_pts - audio_pts;
+            printf("%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f ",
+                   dt, (_ift-ift)*0.000001,
+                   VA_delay, video_pts-dt, audio_pts-dt,
+                   playback_speed*mpctx->audio_out->get_delay()-mpctx->delay);
+
 #ifdef USE_OML_EXCEPTIONS
 	    if (total_frame_cnt < DEFAULT_STARTUP_DECODE_RETRY)
 	        drop_frame=0;
@@ -2519,23 +2535,23 @@ static double update_video(int *blit_frame)
 	        if (drop_frame < 2)
 	    	oml_try_within_disable();
 #ifdef CONFIG_DVDNAV
-            full_frame    = 1;
-	    decoded_frame = mp_dvdnav_restore_smpi(&in_size,&start,decoded_frame);
-	    /// still frame has been reached, no need to decode
-	    if (in_size > 0 && !decoded_frame)
+                full_frame    = 1;
+	        decoded_frame = mp_dvdnav_restore_smpi(&in_size,&start,decoded_frame);
+	        /// still frame has been reached, no need to decode
+	        if (in_size > 0 && !decoded_frame)
 #endif
-	    decoded_frame = decode_video(sh_video, start, in_size,
-					 drop_frame, sh_video->pts, &full_frame);
-	    oml_try_within_enable();
+	        decoded_frame = decode_video(sh_video, start, in_size,
+	            			 drop_frame, sh_video->pts, &full_frame);
+	        oml_try_within_enable();
 #ifdef CONFIG_DVDNAV
-	    /// save back last still frame for future display
-	    mp_dvdnav_save_smpi(in_size,start,decoded_frame);
+	        /// save back last still frame for future display
+	        mp_dvdnav_save_smpi(in_size,start,decoded_frame);
 #endif
 	    }
 	    oml_handle
 	        oml_when(oml_ex_deadline_violation) {
-	    	decoded_frame = NULL;
-	    	++drop_frame_cnt;
+	    	    decoded_frame = NULL;
+	    	    ++drop_frame_cnt;
 	        }
 	    oml_end;
 	    ++total_frame_cnt;
@@ -2570,21 +2586,6 @@ static double update_video(int *blit_frame)
                 update_teletext(sh_video, mpctx->demuxer, 0);
                 update_osd_msg();
             }
-
-            ift = _ift;
-            t = _ift = GetTimer();
-            if (ift == 0) ift = t;
-            if (_t == 0) _t = t;
-            dt = (t - _t)*0.000001;
-            
-            audio_pts = written_audio_pts(mpctx->sh_audio, mpctx->d_audio) -
-            	    mpctx->delay + audio_delay;
-            video_pts = sh_video ? sh_video->pts : mpctx->d_video->pts;
-            VA_delay = video_pts - audio_pts;
-            printf("%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f ",
-                   dt, (_ift-ift)*0.000001,
-                   VA_delay, video_pts-dt, audio_pts-dt,
-                   playback_speed*mpctx->audio_out->get_delay()-mpctx->delay);
 
 #ifdef CONFIG_DVDNAV
             // save back last still frame for future display
